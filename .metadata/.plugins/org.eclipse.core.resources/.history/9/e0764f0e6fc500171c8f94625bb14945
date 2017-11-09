@@ -1,0 +1,128 @@
+import java.awt.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.PriorityQueue;
+import java.util.Queue;
+
+public class JobSchedule {
+	// jobs in arrayList
+	ArrayList<Job> jobs;
+	boolean change;
+	private Job dummy;
+	
+	public JobSchedule() {
+		jobs = new ArrayList<Job>();
+		change = false;
+		dummy = new Job(0);
+	}
+
+	public Job addJob(int time) {
+		Job job = new Job(time);
+		jobs.add(job);
+		relaxDummy(job);
+		return job;
+	}
+
+	// get job with given index in jobs arraylist
+	public Job getJob(int index) {	return jobs.get(index);}
+
+	private void relaxDummy(Job job)
+	{
+		if(job.startTime + job.getTimeToFinish() > dummy.startTime)
+		{
+			dummy.startTime = job.startTime +job.timeToFinish;
+		}
+	}
+	public int minCompletionTime() {
+		return dummy.getStartTime();
+	}
+
+	class Job {
+		ArrayList<Job> outGoing;
+		int inDegree;
+		int dummy;
+		int timeToFinish;
+		int startTime;
+		boolean finished = false;
+
+		protected Job(int time) {
+			timeToFinish = time;
+			outGoing = new ArrayList<Job>();
+			startTime = 0;
+		}
+
+		public void requires(Job j) {
+			j.outGoing.add(this);
+			this.inDegree++;
+			change = true;
+
+		}
+
+		int getTimeToFinish() {
+			return timeToFinish;
+		}
+
+		public int getStartTime() {
+			if(change){
+				DAG();
+				change = false;
+			}
+			if (startTime == Integer.MAX_VALUE)
+				startTime = -1;
+			return startTime;
+		}
+	}
+
+	void DAG() {
+		ArrayList<Job> vert = TopOrder(jobs);
+		for (Job u : vert) {
+			for (Job out : u.outGoing) {
+				Relax(u, out);
+			}
+		}
+		if(vert.size() != jobs.size()) dummy.startTime = -1;
+	}
+
+	void Relax(Job u, Job v) {
+		if ((u.startTime + u.timeToFinish) > (v.startTime)) {
+			v.startTime = u.startTime + u.timeToFinish;
+			if(v.startTime + v.getTimeToFinish() > dummy.startTime)
+			{
+				dummy.startTime = v.startTime +v.timeToFinish;
+			}
+		}
+	}
+
+	// make a list of topological order
+	// return a topological order
+	private ArrayList<Job> TopOrder(ArrayList<Job> unsorted) {
+		ArrayList<Job> TopOrder = new ArrayList<Job>();
+		Queue<Job> queue = new LinkedList<Job>();
+		int index = 0;
+		for (Job j : unsorted) {
+			j.dummy = j.inDegree;
+			j.startTime = Integer.MAX_VALUE;
+			if (j.inDegree == 0) {
+				queue.add(j);
+				j.startTime = 0;
+			}
+		}
+		while (!queue.isEmpty()) {
+			Job u = queue.remove();
+			if (u.startTime != 0)
+				u.startTime = Integer.MIN_VALUE;
+			TopOrder.add(u);
+			for (Job j : u.outGoing) {
+				j.dummy--;
+				if (j.dummy == 0) {
+					queue.add(j);
+				}
+			}
+		}
+		return TopOrder;
+	}
+
+}

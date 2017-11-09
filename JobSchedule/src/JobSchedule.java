@@ -1,37 +1,40 @@
+import java.awt.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.PriorityQueue;
 import java.util.Queue;
 
 public class JobSchedule {
 	// jobs in arrayList
 	ArrayList<Job> jobs;
+	boolean change;
+	private Job dummyJob;
 	
 	public JobSchedule() {
 		jobs = new ArrayList<Job>();
+		change = false;
+		dummyJob = new Job(0);
 	}
 
 	public Job addJob(int time) {
 		Job job = new Job(time);
 		jobs.add(job);
+		relaxDummy(job);
 		return job;
 	}
 
 	// get job with given index in jobs arraylist
-	public Job getJob(int index) {
-		return jobs.get(index);
-	}
+	public Job getJob(int index) {	return jobs.get(index);}
 
+	private void relaxDummy(Job job)
+	{
+		if(job.startTime + job.getTimeToFinish() > dummyJob.startTime) 	dummyJob.startTime = job.startTime +job.timeToFinish;
+	}
 	public int minCompletionTime() {
-		Job minJ = this.jobs.get(0);
-		for (Job j : jobs) {
-			if (j.getStartTime() < 0)
-				return -1;
-			if (minJ.getStartTime() + minJ.getTimeToFinish() < j.getStartTime() + j.getTimeToFinish())
-				minJ = j;
-		}
-		return minJ.getStartTime() + minJ.getTimeToFinish();
+		return dummyJob.getStartTime();
 	}
 
 	class Job {
@@ -39,56 +42,19 @@ public class JobSchedule {
 		int inDegree;
 		int dummy;
 		int timeToFinish;
-		ArrayList<Job> requireJobs;
-		int startTime = 0;
+		int startTime;
 		boolean finished = false;
-		Job pi ;
-		int i ;
 
 		protected Job(int time) {
-			
 			timeToFinish = time;
 			outGoing = new ArrayList<Job>();
 			startTime = 0;
-			finished = false;
-			pi = null;
-			inDegree = 0;
-			i = jobs.size();
-		}
-		
-		public void helper(Job j)
-		{
-			if(this.pi == null || (this.pi.startTime + this.pi.timeToFinish) < (j.startTime + j.timeToFinish))
-			{
-				this.pi = j;
-				
-				this.startTime = j.startTime + j.timeToFinish;
-				for(Job t: this.outGoing)
-				{
-					t.helper(this);
-				}
-			}
 		}
 
 		public void requires(Job j) {
 			j.outGoing.add(this);
-		
-		if(this.pi == null || (this.pi.startTime + this.pi.timeToFinish) < (j.startTime + j.timeToFinish))
-		{
-			this.helper(j);
-		}
-
-			
-			
-			
-			
-			
-			
-			
-//			requireJobs.add(j);
-//			j.outGoing.add(this);
-//			this.inDegree++;
-//			DAG();
+			this.inDegree++;
+			change = true;
 		}
 
 		int getTimeToFinish() {
@@ -96,82 +62,60 @@ public class JobSchedule {
 		}
 
 		public int getStartTime() {
-			
-			boolean loop = true;
-			
-			boolean[] member = new boolean[jobs.size()];
-			Arrays.fill(member, Boolean.FALSE);
-			Job j = this.pi;
-			while(j != null )
-			{
-				if(member[j.i]  == true)
-				{
-					this.startTime = Integer.MIN_VALUE;
-					break;
-				}
-				member[j.i] = true;
-				j = j.pi;
+			if(change){
+				DAG();
+				change = false;
 			}
-			
-			
-			if (startTime < 0)
+			if (startTime == Integer.MAX_VALUE)
 				startTime = -1;
 			return startTime;
 		}
 	}
-	
-	
 
 	void DAG() {
 		ArrayList<Job> vert = TopOrder(jobs);
 		for (Job u : vert) {
-			u.finished = true;
 			for (Job out : u.outGoing) {
 				Relax(u, out);
 			}
 		}
+		if(vert.size() != jobs.size()) dummyJob.startTime = -1;
 	}
 
 	void Relax(Job u, Job v) {
 		if ((u.startTime + u.timeToFinish) > (v.startTime)) {
-			if (v.finished) {
-				v.startTime = Integer.MIN_VALUE;
-				u.startTime = Integer.MIN_VALUE;
-				return;
-			}
 			v.startTime = u.startTime + u.timeToFinish;
+			relaxDummy(v);
 		}
 	}
 
 	// make a list of topological order
 	// return a topological order
 	private ArrayList<Job> TopOrder(ArrayList<Job> unsorted) {
-		ArrayList<Job> topOrdering = new ArrayList<Job>(unsorted);
+		ArrayList<Job> TopOrder = new ArrayList<Job>();
+		Queue<Job> queue = new LinkedList<Job>();
 		int index = 0;
 		for (Job j : unsorted) {
 			j.dummy = j.inDegree;
-			j.startTime = Integer.MIN_VALUE;
-			j.finished = false;
+			j.startTime = Integer.MAX_VALUE;
 			if (j.inDegree == 0) {
-				topOrdering.set(index++, j);
+				queue.add(j);
 				j.startTime = 0;
 			}
 		}
-		if (index == 0) {
-			return topOrdering;
-		}
-		
-		Iterator<Job> iter = topOrdering.iterator();
-		while (iter.hasNext()) {
-			Job u = iter.next();
+		while (!queue.isEmpty()) {
+			Job u = queue.remove();
+			if (u.startTime != 0)
+				u.startTime = Integer.MIN_VALUE;
+			TopOrder.add(u);
 			for (Job j : u.outGoing) {
 				j.dummy--;
 				if (j.dummy == 0) {
-					topOrdering.set(index++, j);
+					queue.add(j);
 				}
 			}
 		}
-		return topOrdering;
+		return TopOrder;
 	}
 
 }
